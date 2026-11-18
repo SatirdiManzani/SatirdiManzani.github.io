@@ -12,15 +12,90 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
-  html, body { margin: 0; height: 100%; background: #34639f; overflow: hidden; }
+  html, body { margin: 0; height: 100%; background: #34639f; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #f4f6f9; }
+  #off { z-index: 2; display: none; }
+  #bar { position: fixed; left: 10px; right: 10px; bottom: 74px; z-index: 5; display: none; background: #1b2430; color: #fff;
+         border-radius: 12px; padding: 10px 12px; font-size: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.3); align-items: center; gap: 10px; }
+  #bar span { flex: 1; }
+  #bar button { border: 0; border-radius: 9px; padding: 8px 12px; font-size: 14px; background: #fff; color: #34639f; font-weight: 600; }
 </style>
 </head>
 <body>
-<!-- Pagina ponte: mostra l'App Satir (Google Apps Script) con logo e senza il banner di Google. -->
-<iframe
+<!-- Pagina ponte: mostra l'App Satir (Google Apps Script) con logo e senza il banner di Google.
+     Tiene anche una copia dell'app e dei dati per consultarli senza rete. -->
+<iframe id="app"
   src="https://script.google.com/macros/s/AKfycbxXoBnwhkWEcSkvP8eQDb-0jjgy2IUqvr5SDfHlAG3eR-hrnANpMh9IsSb6k8P0Ztga/exec"
   title="Satir di Manzani"
   allow="camera; geolocation; clipboard-write"></iframe>
+<iframe id="off" title="Satir offline"></iframe>
+<div id="bar"><span id="barTxt"></span><button id="barBtn"></button></div>
+<script>
+(function(){
+  var K_DATA='satir_off_data', K_TIME='satir_off_time', K_HTML='satir_off_html';
+  var APP_ORIGIN=/^https:\/\/[a-z0-9.-]+\.googleusercontent\.com$/;
+  var gotData=false, offline=false;
+  function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
+  function hasCopy(){ return !!(ls(K_DATA) && ls(K_HTML)); }
+  function bar(txt, btn, fn){ var b=document.getElementById('bar'); if(!txt){ b.style.display='none'; return; }
+    document.getElementById('barTxt').textContent=txt; var x=document.getElementById('barBtn'); x.textContent=btn; x.onclick=fn; b.style.display='flex'; }
+
+  // l'app online manda qui i dati e la propria pagina
+  window.addEventListener('message', function(e){
+    if(!APP_ORIGIN.test(e.origin) || !e.data || typeof e.data!=='object') return;
+    try{ if(e.source.top!==window) return; }catch(x){ return; }
+    if(e.data.type==='satir-data' && typeof e.data.data==='string'){
+      ls(K_DATA, e.data.data); ls(K_TIME, String(Date.now())); gotData=true;
+      if(offline) bar('Connessione tornata', 'Torna online', goOnline); else bar('');
+    }
+    if(e.data.type==='satir-app' && typeof e.data.html==='string' && e.data.html.length>1000) ls(K_HTML, e.data.html);
+  });
+
+  function escAttr(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function fmtTime(t){ var d=new Date(Number(t)); return d.toLocaleDateString('it-IT',{day:'numeric',month:'short'})+' alle '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); }
+
+  function buildOffline(){
+    var html=ls(K_HTML), data=ls(K_DATA), t=ls(K_TIME);
+    var user=''; try{ user=JSON.parse(data).user.nome; }catch(e){}
+    var json=data.replace(/</g,'\\u003c');
+    var stub='<script>(function(){'+
+      'var DATA='+json+';'+
+      'function R(){ var o={s:null,f:null}; o.withSuccessHandler=function(x){o.s=x;return o;}; o.withFailureHandler=function(x){o.f=x;return o;};'+
+      ' ["getData","saveRecord","deleteRecord","deleteRecords","uploadPhoto","getPhotoThumb","getOfflineHtml"].forEach(function(n){ o[n]=function(){ var s=o.s,f=o.f; setTimeout(function(){ if(n==="getData"){ if(s) s(JSON.stringify(DATA)); } else if(f) f({message:"Sei offline: puoi solo consultare"}); },0); }; }); return o; }'+
+      'var P=window.parent;'+
+      'window.google={script:{history:{push:function(st){P.history.pushState({satir:st},"");},replace:function(st){P.history.replaceState({satir:st},"");},'+
+      ' setChangeHandler:function(fn){ P.addEventListener("popstate",function(e){ fn({state:e.state&&e.state.satir}); }); }}}};'+
+      'Object.defineProperty(window.google.script,"run",{get:R});'+
+      '})();<\/script>';
+    var css='<style>.fab,.addrow,.card .actions,#fabEdit,.section h3 button{display:none!important}#modal .actions .btn:not(.light){display:none!important}'+
+      '.offbanner{background:#fdebd3;color:#6d3b00;font-size:13px;padding:7px 12px;text-align:center}</style>';
+    var after='<script>(function(){'+
+      'var msg=function(){ toast("Sei offline: puoi solo consultare"); };'+
+      '["save","del","addSpesa","toggleSpesa","svuotaComprati","pickPhoto","submitForm","load"].forEach(function(n){ window[n]= n==="load" ? function(){ google.script.run.withSuccessHandler(function(s){ D=JSON.parse(s); if(!document.getElementById("modal")) render(); }).getData(); } : msg; });'+
+      'var b=document.createElement("div"); b.className="offbanner"; b.textContent='+JSON.stringify('📴 Offline · dati del '+(t?fmtTime(t):'?')+' · solo consultazione')+';'+
+      'document.querySelector("header").appendChild(b);'+
+      '})();<\/script>';
+    return html.replace('<?= userName ?>', function(){ return escAttr(user); }).replace('<head>', function(){ return '<head>'+stub+css; }).replace('</body>', function(){ return after+'</body>'; });
+  }
+
+  function goOffline(){
+    if(offline) return;
+    if(!hasCopy()){ bar('Nessuna connessione e nessuna copia salvata: apri l\'app una volta con internet', 'Riprova', function(){ location.reload(); }); return; }
+    offline=true;
+    var f=document.getElementById('off'); f.srcdoc=buildOffline(); f.style.display='block';
+    bar('');
+  }
+  function goOnline(){ location.reload(); }
+
+  if(!navigator.onLine) goOffline();
+  window.addEventListener('offline', function(){ if(!gotData) goOffline(); else bar('Sei senza rete', 'Dati salvati', goOffline); });
+  window.addEventListener('online', function(){ if(offline) bar('Connessione tornata', 'Torna online', goOnline); });
+  // rete lenta o assente (es. sottoterra): dopo 8 secondi propone la copia, dopo 20 la apre da sola
+  setTimeout(function(){ if(!gotData && !offline && hasCopy()) bar('La connessione è lenta…', 'Apri dati salvati', goOffline); }, 8000);
+  setTimeout(function(){ if(!gotData && !offline && hasCopy()) goOffline(); }, 20000);
+
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
+})();
+</script>
 </body>
 </html>
