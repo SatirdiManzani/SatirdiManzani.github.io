@@ -34,7 +34,7 @@
 (function(){
   var K_DATA='satir_off_data', K_TIME='satir_off_time', K_HTML='satir_off_html';
   var APP_ORIGIN=/^https:\/\/[a-z0-9.-]+\.googleusercontent\.com$/;
-  var gotData=false, offline=false;
+  var gotData=false, appReady=false, offline=false;
   function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
   function hasCopy(){ return !!(ls(K_DATA) && ls(K_HTML)); }
   function bar(txt, btn, fn){ var b=document.getElementById('bar'); if(!txt){ b.style.display='none'; return; }
@@ -48,6 +48,7 @@
       ls(K_DATA, e.data.data); ls(K_TIME, String(Date.now())); gotData=true;
       if(offline) bar('Connessione tornata', 'Torna online', goOnline); else bar('');
     }
+    if(e.data.type==='satir-ready'){ appReady=true; if(!offline) bar(''); }
     if(e.data.type==='satir-app' && typeof e.data.html==='string' && e.data.html.length>1000) ls(K_HTML, e.data.html);
   });
 
@@ -88,11 +89,11 @@
   function goOnline(){ location.reload(); }
 
   if(!navigator.onLine) goOffline();
-  window.addEventListener('offline', function(){ if(!gotData) goOffline(); else bar('Sei senza rete', 'Dati salvati', goOffline); });
+  window.addEventListener('offline', function(){ if(!gotData && !appReady) goOffline(); else bar('Sei senza rete', 'Dati salvati', goOffline); });
   window.addEventListener('online', function(){ if(offline) bar('Connessione tornata', 'Torna online', goOnline); });
   // rete lenta o assente (es. sottoterra): dopo 8 secondi propone la copia, dopo 20 la apre da sola
-  setTimeout(function(){ if(!gotData && !offline && hasCopy()) bar('La connessione è lenta…', 'Apri dati salvati', goOffline); }, 8000);
-  setTimeout(function(){ if(!gotData && !offline && hasCopy()) goOffline(); }, 20000);
+  setTimeout(function(){ if(!gotData && !appReady && !offline && hasCopy()) bar('La connessione è lenta…', 'Apri dati salvati', goOffline); }, 8000);
+  setTimeout(function(){ if(!gotData && !appReady && !offline && hasCopy()) goOffline(); }, 20000);
 
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
 })();
