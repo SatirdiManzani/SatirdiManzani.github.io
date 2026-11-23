@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lavori Satir</title>
+<meta name="theme-color" content="#34639f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lavori Satir">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #34639f; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #f4f6f9; }
+  #msg { color: #fff; padding: 40px 24px; text-align: center; display: none; }
+</style>
+</head>
+<body>
+<!-- Pagina ponte dell'app di Massimo: logo Satir, installabile, senza banner Google.
+     La chiave personale arriva nel link (?k=...) e resta solo su questo telefono. -->
+<div id="msg">Link non valido: chiedi il link a Satir.</div>
+<script>
+(function(){
+  var APP = 'https://script.google.com/macros/s/AKfycbzd7CuvB4nxDgsUr3L7EcUSV22J-EKrFk8gdYufMNt58Zmy8lt0yveTO1w3V6rHWPgi/exec';
+  var k = new URLSearchParams(location.search).get('k');
+  try { if (k) localStorage.setItem('satir_massimo_k', k); else k = localStorage.getItem('satir_massimo_k'); } catch (e) {}
+  if (!k) { document.getElementById('msg').style.display = 'block'; return; }
+  var f = document.createElement('iframe');
+  f.src = APP + '?k=' + encodeURIComponent(k);
+  f.title = 'Lavori Satir';
+  f.allow = 'camera; clipboard-write';
+  document.body.appendChild(f);
+})();
+</script>
+</body>
+</html>
